@@ -1,0 +1,206 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "title": "System Overview",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "title": "Chunks Processed (Total)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "chunks_processed_total", "legendFormat": "Total" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 500 },
+              { "color": "red", "value": 1000 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Lines Processed (Total)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "lines_processed_total", "legendFormat": "Processed" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Lines Failed (Total)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "lines_failed_total", "legendFormat": "Failed" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Queue Depth",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "amq_queue_depth{queue=\"quantum.file.chunks\"}", "legendFormat": "Pending" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red", "value": 500 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Processing Performance",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }
+    },
+    {
+      "title": "Chunk Processing Rate (per minute)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "rate(chunks_processed_total[5m]) * 60", "legendFormat": "Chunks/min" }
+      ]
+    },
+    {
+      "title": "Chunk Processing Time (p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "histogram_quantile(0.95, rate(chunk_processing_time_seconds_bucket[5m]))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.50, rate(chunk_processing_time_seconds_bucket[5m]))", "legendFormat": "p50" }
+      ]
+    },
+    {
+      "title": "Line Processing Rate (per second)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "rate(lines_processed_total[5m])", "legendFormat": "Lines/sec (success)" },
+        { "expr": "rate(lines_failed_total[5m])", "legendFormat": "Lines/sec (failed)" }
+      ]
+    },
+    {
+      "title": "Error Rate (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "rate(lines_failed_total[5m]) / (rate(lines_processed_total[5m]) + rate(lines_failed_total[5m])) * 100", "legendFormat": "Error %" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Infrastructure",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 }
+    },
+    {
+      "title": "CPU Usage by Pod",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "rate(process_cpu_seconds_total{application=~\"chunk-processor|file-ingester\"}[5m])", "legendFormat": "{{ instance }}" }
+      ]
+    },
+    {
+      "title": "JVM Heap Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "jvm_memory_used_bytes{area=\"heap\",application=~\"chunk-processor|file-ingester\"} / jvm_memory_max_bytes{area=\"heap\",application=~\"chunk-processor|file-ingester\"} * 100", "legendFormat": "{{ instance }}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percent" }
+      }
+    },
+    {
+      "title": "Queue & DLQ Depth",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 31 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "amq_queue_depth{queue=\"quantum.file.chunks\"}", "legendFormat": "Chunk Queue" },
+        { "expr": "amq_dlq_depth{queue=\"DLQ.quantum.file.chunks\"}", "legendFormat": "DLQ" }
+      ]
+    },
+    {
+      "title": "Active Worker Pods",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 31 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "count(up{job=\"chunk-processor\"} == 1)", "legendFormat": "Active Pods" }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["quantum", "file-processing"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Quantum File Processor - Overview",
+  "uid": "quantum-overview",
+  "version": 1
+}

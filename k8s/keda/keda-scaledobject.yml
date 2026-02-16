@@ -1,0 +1,42 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: chunk-processor-keda
+  namespace: quantum-processing
+  labels:
+    app: chunk-processor
+    app.kubernetes.io/part-of: quantum-file-processor
+spec:
+  scaleTargetRef:
+    name: chunk-processor
+  pollingInterval: 15
+  cooldownPeriod: 60
+  minReplicaCount: 2
+  maxReplicaCount: 20
+  fallback:
+    failureThreshold: 3
+    replicas: 4
+  triggers:
+    - type: artemis-queue
+      metadata:
+        managementEndpoint: "amq-broker.quantum-processing.svc.cluster.local:8161"
+        queueName: "quantum.file.chunks"
+        brokerName: "quantum-broker"
+        brokerAddress: "quantum.file.chunks"
+        queueLength: "50"
+      authenticationRef:
+        name: amq-trigger-auth
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: amq-trigger-auth
+  namespace: quantum-processing
+spec:
+  secretTargetRef:
+    - parameter: username
+      name: quantum-secrets
+      key: AMQ_USER
+    - parameter: password
+      name: quantum-secrets
+      key: AMQ_PASSWORD

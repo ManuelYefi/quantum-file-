@@ -1,0 +1,41 @@
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# IDE
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+.factorypath
+*.swp
+*~
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Maven
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+
+# Spring Boot
+*.log
+
+# Docker
+.docker/
+
+# Input files (test data)
+input/*.csv
+input/*.txt
+input/*.dat
+
+# Environment
+.env

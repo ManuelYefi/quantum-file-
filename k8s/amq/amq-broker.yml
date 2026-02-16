@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: amq-broker
+  namespace: quantum-processing
+  labels:
+    app: amq-broker
+    app.kubernetes.io/part-of: quantum-file-processor
+spec:
+  serviceName: amq-broker
+  replicas: 1
+  selector:
+    matchLabels:
+      app: amq-broker
+  template:
+    metadata:
+      labels:
+        app: amq-broker
+    spec:
+      containers:
+        - name: amq-broker
+          image: registry.redhat.io/amq7/amq-broker-rhel8:7.13
+          ports:
+            - containerPort: 61616
+              name: amqp
+            - containerPort: 8161
+              name: console
+            - containerPort: 5672
+              name: amqp-alt
+          env:
+            - name: AMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: quantum-secrets
+                  key: AMQ_USER
+            - name: AMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: quantum-secrets
+                  key: AMQ_PASSWORD
+            - name: AMQ_ROLE
+              value: admin
+            - name: AMQ_NAME
+              value: quantum-broker
+            - name: AMQ_REQUIRE_LOGIN
+              value: "true"
+            - name: AMQ_EXTRA_ARGS
+              value: "--relax-jolokia"
+          volumeMounts:
+            - name: amq-data
+              mountPath: /opt/amq/data
+            - name: broker-config
+              mountPath: /opt/amq/conf/broker-custom.xml
+              subPath: broker.xml
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          livenessProbe:
+            tcpSocket:
+              port: 61616
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 61616
+            initialDelaySeconds: 30
+            periodSeconds: 5
+      volumes:
+        - name: broker-config
+          configMap:
+            name: amq-broker-config
+  volumeClaimTemplates:
+    - metadata:
+        name: amq-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: amq-broker
+  namespace: quantum-processing
+  labels:
+    app: amq-broker
+spec:
+  selector:
+    app: amq-broker
+  ports:
+    - port: 61616
+      targetPort: 61616
+      name: artemis
+    - port: 8161
+      targetPort: 8161
+      name: console
+    - port: 5672
+      targetPort: 5672
+      name: amqp
+  clusterIP: None
