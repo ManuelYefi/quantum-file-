@@ -1,0 +1,14 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'file-ingester'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['file-ingester:8081']
+
+  - job_name: 'chunk-processor'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['chunk-processor:8082']

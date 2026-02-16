@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  amq-broker:
+    image: apache/activemq-artemis:2.33.0
+    container_name: amq-broker
+    ports:
+      - "61616:61616"
+      - "8161:8161"
+      - "5672:5672"
+    environment:
+      ARTEMIS_USER: admin
+      ARTEMIS_PASSWORD: admin
+    volumes:
+      - amq-data:/var/lib/artemis-instance
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8161/console"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  file-ingester:
+    build:
+      context: ./file-ingester
+      dockerfile: Dockerfile
+    container_name: file-ingester
+    ports:
+      - "8081:8081"
+    environment:
+      AMQ_HOST: amq-broker
+      AMQ_PORT: 61616
+      AMQ_USER: admin
+      AMQ_PASSWORD: admin
+      INPUT_DIR: /data/input
+      FILE_NOOP: "true"
+    volumes:
+      - ./input:/data/input
+    depends_on:
+      amq-broker:
+        condition: service_healthy
+
+  chunk-processor:
+    build:
+      context: ./chunk-processor
+      dockerfile: Dockerfile
+    container_name: chunk-processor
+    ports:
+      - "8082:8082"
+    environment:
+      AMQ_HOST: amq-broker
+      AMQ_PORT: 61616
+      AMQ_USER: admin
+      AMQ_PASSWORD: admin
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CONSUMER_CONCURRENCY: "1-5"
+    depends_on:
+      amq-broker:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+
+  grafana:
+    image: grafana/grafana:10.4.1
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana/quantum-overview-dashboard.json:/var/lib/grafana/dashboards/quantum-overview.json
+    depends_on:
+      - prometheus
+
+volumes:
+  amq-data:

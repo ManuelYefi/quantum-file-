@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: quantum-processing
+  labels:
+    app: prometheus
+    app.kubernetes.io/part-of: quantum-file-processor
+data:
+  alerts.yml: |
+    groups:
+      - name: quantum-file-processor-alerts
+        rules:
+          # Queue depth alert
+          - alert: HighQueueDepth
+            expr: amq_queue_depth{queue="quantum.file.chunks"} > 1000
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High queue depth on quantum.file.chunks"
+              description: "Queue depth is {{ $value }} messages (threshold: 1000)"
+
+          # DLQ alert - any message in DLQ is critical
+          - alert: DLQNotEmpty
+            expr: amq_dlq_depth{queue="DLQ.quantum.file.chunks"} > 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Messages detected in Dead Letter Queue"
+              description: "{{ $value }} messages in DLQ - investigate failed chunks"
+
+          # High CPU usage
+          - alert: HighCPUUsage
+            expr: rate(process_cpu_seconds_total{application="chunk-processor"}[5m]) > 0.8
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU usage on chunk-processor"
+              description: "CPU usage is {{ $value | humanizePercentage }}"
+
+          # High memory usage
+          - alert: HighMemoryUsage
+            expr: jvm_heap_usage_ratio{application="chunk-processor"} > 0.85
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory usage on chunk-processor"
+              description: "Heap usage is {{ $value | humanizePercentage }}"
+
+          # Processing throughput drop
+          - alert: LowThroughput
+            expr: rate(chunks_processed_total[5m]) < 0.1 and amq_queue_depth > 0
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Low chunk processing throughput"
+              description: "Processing rate dropped below threshold while queue has messages"
+
+          # Worker pod down
+          - alert: ChunkProcessorDown
+            expr: up{job="chunk-processor"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Chunk processor instance is down"
+              description: "Instance {{ $labels.instance }} has been down for more than 2 minutes"
+
+          # High error rate
+          - alert: HighErrorRate
+            expr: rate(lines_failed_total[5m]) / (rate(lines_processed_total[5m]) + rate(lines_failed_total[5m])) > 0.05
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "High error rate in line processing"
+              description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+          # Slow chunk processing
+          - alert: SlowChunkProcessing
+            expr: histogram_quantile(0.95, rate(chunk_processing_time_seconds_bucket[5m])) > 30
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Slow chunk processing detected"
+              description: "95th percentile processing time is {{ $value }}s"

@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-ingester
+  namespace: quantum-processing
+  labels:
+    app: file-ingester
+    app.kubernetes.io/part-of: quantum-file-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: file-ingester
+  template:
+    metadata:
+      labels:
+        app: file-ingester
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      containers:
+        - name: file-ingester
+          image: quantum/file-ingester:latest
+          ports:
+            - containerPort: 8081
+              name: http
+          envFrom:
+            - configMapRef:
+                name: quantum-config
+            - secretRef:
+                name: quantum-secrets
+          env:
+            - name: SERVER_PORT
+              value: "8081"
+            - name: INPUT_DIR
+              value: "/data/input"
+          volumeMounts:
+            - name: input-volume
+              mountPath: /data/input
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8081
+            initialDelaySeconds: 20
+            periodSeconds: 5
+      volumes:
+        - name: input-volume
+          persistentVolumeClaim:
+            claimName: input-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: file-ingester
+  namespace: quantum-processing
+  labels:
+    app: file-ingester
+spec:
+  selector:
+    app: file-ingester
+  ports:
+    - port: 8081
+      targetPort: 8081
+      name: http
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: input-pvc
+  namespace: quantum-processing
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
